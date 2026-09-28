@@ -1,0 +1,149 @@
+# Heltec WiFi LoRa 32 V4 (ESP32-S3, SX1262, 868 MHz) as a wM-Bus receiver.
+# Pinout / RF front-end control taken from Meshtastic variants/esp32s3/heltec_v4/variant.h
+#
+# The V4 has an RF front-end module (FEM) between the SX1262 and the antenna:
+#   V4.2 -> GC1109,  V4.3 -> KCT8103L
+# It MUST be powered and enabled, otherwise reception is (almost) dead.
+# Set the `fem_*` switches below according to your board revision.
+#
+# This config lives inside the component repo and uses the local (patched)
+# components, so the 1.8 V TCXO option (`tcxo_voltage`) needed by the Heltec
+# V3/V4 is available. See the commented github source to run it from a pushed
+# copy of this fork instead.
+
+substitutions:
+  name: "wmbus-heltec-v4"
+  friendly_name: "wM-Bus Heltec V4"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+
+esp32:
+  board: heltec_wifi_lora_32_V3   # no V4 entry in PlatformIO yet; same ESP32-S3 family
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+
+external_components:
+  # The config ships alongside the components, so use the local (patched) copy:
+  - source:
+      type: local
+      path: components
+  # To run from a pushed copy of this fork instead, comment the block above and use:
+  # - source: github://slaveq86/esphome-components_fork@main
+  #   refresh: 0s
+
+logger:
+  level: DEBUG
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Fallback hotspot when Wi-Fi is unreachable. Without a password anyone in
+  # range could join the captive portal and point the device at their network.
+  ap:
+    password: !secret ap_password
+
+captive_portal:
+
+time:
+  - platform: homeassistant
+
+# ---- RF front end + Vext power -------------------------------------------
+switch:
+  # Vext (active low): OLED + LoRa antenna boost power
+  - platform: gpio
+    id: vext
+    pin:
+      number: GPIO36
+      inverted: true
+    restore_mode: ALWAYS_ON
+    internal: true
+
+  # FEM LDO power (V4.2 and V4.3)
+  - platform: gpio
+    id: fem_power
+    pin: GPIO7
+    restore_mode: ALWAYS_ON
+    internal: true
+
+  # FEM chip enable CSD (V4.2 and V4.3)
+  - platform: gpio
+    id: fem_enable
+    pin: GPIO2
+    restore_mode: ALWAYS_ON
+    internal: true
+
+  # V4.2 / GC1109: CPS low = PA bypass (don't care in RX, keep PA off)
+  - platform: gpio
+    id: fem_gc1109_cps
+    pin:
+      number: GPIO46
+      ignore_strapping_warning: true
+    restore_mode: ALWAYS_OFF
+    internal: true
+
+  # V4.3 / KCT8103L: CTX low = RX with LNA. Uncomment for V4.3 and
+  # remove the GC1109 switch above.
+  # - platform: gpio
+  #   id: fem_kct8103l_ctx
+  #   pin: GPIO5
+  #   restore_mode: ALWAYS_OFF
+  #   internal: true
+
+# ---- SX1262 ----------------------------------------------------------------
+spi:
+  clk_pin: GPIO9
+  mosi_pin: GPIO10
+  miso_pin: GPIO11
+
+wmbus_radio:
+  radio_type: SX1262
+  cs_pin: GPIO8
+  reset_pin: GPIO12
+  irq_pin: GPIO14        # DIO1
+  busy_pin: GPIO13
+  rf_switch: true        # DIO2 drives the FEM TX/RX select
+  has_tcxo: true
+  tcxo_voltage: 1.8V     # Heltec V3/V4 TCXO runs at 1.8 V (patched option)
+  on_frame:
+    - then:
+        - logger.log:
+            format: "RSSI: %ddBm T: %s (%d) %s"
+            args: [ frame->rssi(), frame->as_hex().c_str(), frame->data().size(), toString(frame->link_mode()) ]
+
+# ---- Meter -----------------------------------------------------------------
+# Start without a meter: every received telegram is logged with a
+# https://wmbusmeters.org/analyze/<hex> link to identify driver and fields.
+# Then fill in meter_id / type and uncomment. A DIEHL IZAR needs no key.
+#
+# wmbus_meter:
+#   - id: water_meter
+#     meter_id: 0x12345678
+#     type: izar
+#     mode: [T1]
+#
+# sensor:
+#   - platform: wmbus_meter
+#     parent_id: water_meter
+#     field: total_m3
+#     name: "Water total"
+#     accuracy_decimals: 3
+#     device_class: water
+#     state_class: total_increasing
+#
+#   - platform: wmbus_meter
+#     parent_id: water_meter
+#     field: rssi_dbm
+#     name: "Water meter RSSI"
+#     device_class: signal_strength
+#     entity_category: diagnostic

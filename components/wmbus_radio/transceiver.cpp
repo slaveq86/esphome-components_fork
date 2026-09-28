@@ -62,6 +62,10 @@ void RadioTransceiver::set_tcxo(bool enable) {
   this->has_tcxo_ = enable;
 }
 
+void RadioTransceiver::set_tcxo_voltage(uint8_t voltage) {
+  this->tcxo_voltage_ = voltage;
+}
+
 bool RadioTransceiver::wait_busy(uint32_t timeout_ms) {
   if (this->busy_pin_ == nullptr) {
     return true;  // No BUSY pin configured, assume ready

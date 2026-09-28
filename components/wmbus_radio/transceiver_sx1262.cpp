@@ -89,7 +89,7 @@ void SX1262::setup() {
     ESP_LOGVV(TAG, "setting DIO3 as TCXO control");
     const uint32_t tcxodelay = 64;
     this->spi_command(RADIOLIB_SX126X_CMD_SET_DIO3_AS_TCXO_CTRL, {
-                      RADIOLIB_SX126X_DIO3_OUTPUT_3_0,
+                      this->tcxo_voltage_,
                       BYTE(tcxodelay, 2), BYTE(tcxodelay, 1), BYTE(tcxodelay, 0)
     });
   }

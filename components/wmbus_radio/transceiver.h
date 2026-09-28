@@ -62,6 +62,7 @@ public:
   void set_rf_switch(bool enable);
   void set_sync_mode(const std::string &mode);
   void set_tcxo(bool enable);
+  void set_tcxo_voltage(uint8_t voltage);
 
 protected:
   GPIOPin *reset_pin_{nullptr};
@@ -72,6 +73,7 @@ protected:
   bool rf_switch_{false};  // Use DIO2 as RF switch control (SX1262)
   SyncMode sync_mode_{SYNC_MODE_NORMAL};
   bool has_tcxo_{true}; // Use DIO3 as driver for temperature-compensated crystal oscillator
+  uint8_t tcxo_voltage_{0x06}; // DIO3 output for TCXO; 0x06 = 3.0 V (RADIOLIB_SX126X_DIO3_OUTPUT_3_0)
 
   // Byte-by-byte reading interface (used by SX1276) - optional, returns empty if not supported
   virtual optional<uint8_t> read() { return {}; }

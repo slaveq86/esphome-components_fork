@@ -32,6 +32,19 @@ CONF_RX_GAIN = "rx_gain"
 CONF_RF_SWITCH = "rf_switch"
 CONF_SYNC_MODE = "sync_mode"
 CONF_HAS_TCXO = "has_tcxo"
+CONF_TCXO_VOLTAGE = "tcxo_voltage"
+
+# SX126x DIO3 TCXO supply voltages (SetDIO3AsTCXOCtrl)
+TCXO_VOLTAGES = {
+    "1.6V": 0x00,
+    "1.7V": 0x01,
+    "1.8V": 0x02,
+    "2.2V": 0x03,
+    "2.4V": 0x04,
+    "2.7V": 0x05,
+    "3.0V": 0x06,
+    "3.3V": 0x07,
+}
 
 radio_ns = cg.esphome_ns.namespace("wmbus_radio")
 RadioComponent = radio_ns.class_("Radio", cg.Component)
@@ -105,6 +118,9 @@ CONFIG_SCHEMA = (
             ),
             # Use DIO3 to drive an external TCXO (SX1262 only, default: True)
             cv.Optional(CONF_HAS_TCXO, default=True): cv.boolean,
+            cv.Optional(CONF_TCXO_VOLTAGE, default="3.0V"): cv.enum(
+                TCXO_VOLTAGES, upper=True
+            ),
             cv.Optional(CONF_ON_FRAME): automation.validate_automation(
                 {
                     cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(FrameTrigger),
@@ -152,6 +168,7 @@ async def to_code(config):
 
     # TCXO via DIO3
     cg.add(radio_var.set_tcxo(config[CONF_HAS_TCXO]))
+    cg.add(radio_var.set_tcxo_voltage(config[CONF_TCXO_VOLTAGE]))
 
     await spi.register_spi_device(radio_var, config)
     await cg.register_component(radio_var, config)

@@ -26,13 +26,16 @@ esp32:
     type: esp-idf
 
 external_components:
-  # The config ships alongside the components, so use the local (patched) copy:
-  - source:
-      type: local
-      path: components
-  # To run from a pushed copy of this fork instead, comment the block above and use:
-  # - source: github://slaveq86/esphome-components_fork@main
-  #   refresh: 0s
+  # Pull the (patched) components straight from this fork on GitHub, so the
+  # config builds anywhere (e.g. HA's ESPHome Device Builder) without the
+  # components/ folder next to it.
+  - source: github://slaveq86/esphome-components_fork@main
+    refresh: 0s
+  # To build against a local checkout of this fork instead, comment the block
+  # above and use:
+  # - source:
+  #     type: local
+  #     path: components
 
 logger:
   level: DEBUG

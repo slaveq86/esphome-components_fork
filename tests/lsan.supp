@@ -1,0 +1,6 @@
+# LeakSanitizer suppressions for known upstream leaks (wmbusmeters drivers).
+# Each entry is a real bug; remove it once fixed upstream.
+
+# driver_mkradio3a.cpp: `double* prev_month = new double[20];` is never freed
+# (160 bytes per telegram).
+leak:driver_mkradio3a.cpp

@@ -39,7 +39,7 @@ text_sensor:
 - `automation.h` — `TelegramTrigger`.
 
 ## Field names
-Numeric fields are `<name>_<unit>` (`total_m3`, `flow_m3h`, …); wmbusmeters converts to the requested unit. Special cases: `rssi_dbm` (from the last telegram), `timestamp`, `timestamp_zulu`.
+Numeric fields are `<name>_<unit>` (`total_m3`, `flow_m3h`, …). The unit must be the driver's display unit: values are stored under it and looked up by the requested unit *before* conversion, so e.g. `total_l` returns nothing (see `getNumericValue` in `wmbus_common/meters.cpp`). Special cases: `rssi_dbm` (from the last telegram), `timestamp`, `timestamp_zulu`.
 Fields per driver: the `addNumericField…`/`addStringField…` calls in `wmbus_common/driver_<type>.cpp`, or paste a telegram into wmbusmeters.org/analyze. IZAR: `total_m3`, `last_month_total_m3`, `current_alarms`, `remaining_battery_life_y`, …
 
 ## Gotchas

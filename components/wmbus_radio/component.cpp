@@ -89,8 +89,14 @@ void Radio::receive_frame() {
   }
 
   auto packet = std::make_unique<Packet>();
+  uint8_t *buffer;
+  size_t capacity;
 
-  if (!this->radio->read_in_task(packet->rx_data_ptr(), packet->rx_capacity(), 0)) {
+  // rx_capacity() resizes the buffer, so take the pointer first (argument
+  // evaluation order is unspecified).
+  buffer = packet->rx_data_ptr();
+  capacity = packet->rx_capacity();
+  if (!this->radio->read_in_task(buffer, capacity, 0)) {
     this->radio->restart_rx();
     return;
   }
@@ -100,7 +106,9 @@ void Radio::receive_frame() {
     return;
   }
 
-  if (!this->radio->read_in_task(packet->rx_data_ptr(), packet->rx_capacity(), 3)) {
+  buffer = packet->rx_data_ptr();
+  capacity = packet->rx_capacity();
+  if (!this->radio->read_in_task(buffer, capacity, 3)) {
     this->radio->restart_rx();
     return;
   }

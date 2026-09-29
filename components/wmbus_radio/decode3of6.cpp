@@ -30,7 +30,8 @@ decode3of6(std::vector<uint8_t> &coded_data) {
     auto bit_offset = bit_idx % 8;
 
     uint8_t code = (data[byte_idx] << bit_offset);
-    if (bit_offset > 0)
+    // A symbol at bit offset 2 fits in the current byte; only 4 and 6 span two.
+    if (bit_offset > 2)
       code |= (data[byte_idx + 1] >> (8 - bit_offset));
     code >>= 2;
 

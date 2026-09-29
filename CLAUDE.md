@@ -9,7 +9,7 @@
 ## What this is
 A **thin fork** of [SzczepanLeon/esphome-components](https://github.com/SzczepanLeon/esphome-components) (`slaveq86/esphome-components_fork`): ESPHome external components that receive wireless M-Bus (EN 13757-4, 868 MHz, T1/C1) telegrams from utility meters and expose decoded values as sensors in Home Assistant.
 
-The only functional change on top of upstream is the SX1262 **`tcxo_voltage`** option (`wmbus_radio`, commit `c6b2058`). Upstream hardcodes the DIO3 TCXO supply to 3.0 V; the Heltec WiFi LoRa 32 V3/V4 needs **1.8 V** or the radio never locks. Everything else should stay identical to upstream so the fork can be rebased cleanly.
+The main functional change on top of upstream is the SX1262 **`tcxo_voltage`** option (`wmbus_radio`, commit `c6b2058`). There are also two small bug fixes in `wmbus_radio` (`decode3of6.cpp` out-of-bounds read, `component.cpp` argument-order dependency; see `components/wmbus_radio/CLAUDE.md`) that are candidates for upstream. Upstream hardcodes the DIO3 TCXO supply to 3.0 V; the Heltec WiFi LoRa 32 V3/V4 needs **1.8 V** or the radio never locks. Everything else should stay identical to upstream so the fork can be rebased cleanly.
 
 User's target: a Heltec WiFi LoRa 32 **V4** (ESP32-S3 + SX1262) reading a **Diehl IZAR** water meter (driver `izar`, T1, no key), in the style of [zibous/ha-watermeter](https://github.com/zibous/ha-watermeter).
 
@@ -28,6 +28,7 @@ UltimateReader_v5.yaml            upstream example (SX1276, LilyGO T3-S3)
 ESP32-C3_SuperMini_CC1101.yaml    upstream example (CC1101)
 ESP32-NodeMcu-32s_CC1101.yaml     upstream example (CC1101)
 upload_plan.md                    how to flash heltec_v4.yaml via HA's ESPHome Device Builder
+tests/                            hardware-free tests (host C++ + simulated SX1262, codegen pytest)
 ```
 Each component folder has its own `CLAUDE.md`.
 
@@ -41,8 +42,20 @@ radio IRQ ──ISR──▶ radio_recv task (core 1, prio 24) ──SPI read─
 ```
 Unhandled frames log a `https://wmbusmeters.org/analyze/<hex>` link.
 
-## Testing (compile locally)
-There are no unit tests; the ESPHome compiler is the test. Local toolchain: **`~/esphome-venv/bin/esphome`** (ESPHome **2025.10.3** — must match the vendored `components/esp32`).
+## Testing
+Local toolchain: **`~/esphome-venv/bin/esphome`** (ESPHome **2025.10.3** — must match the vendored `components/esp32`).
+
+**0. Hardware-free tests first** (details in `tests/README.md`):
+```bash
+tests/run_all.sh            # host C++ tests (ASan/UBSan) + config/codegen pytest, ~2 min
+tests/run_all.sh --full     # + real ESP-IDF builds of SX1262/SX1276/CC1101 and drivers: all
+make -C tests run T=sx1262  # a subset of the host tests
+```
+- The host tests compile the unmodified component sources for Linux against fakes in `tests/host/stubs/`. The SX1262 is simulated at SPI level (`tests/host/sim/`), so setup commands, `tcxo_voltage`, RX timing and the whole receive → meter → sensor path are tested without a board.
+- Expected result: `0 failed`. The listed `xfail`s are known upstream bugs (`KNOWN_BUG`, see `tests/README.md`). An `XPASS` means one got fixed: move the test out of `KNOWN_BUG`.
+- Keep test code inside `tests/`; never change `components/` just to make something testable.
+
+Then, for anything that touches build config or codegen, the manual steps below.
 
 **1. Build against the local tree, not GitHub.** `heltec_v4.yaml` pulls `github://slaveq86/esphome-components_fork@main`, so it does *not* test local edits. Use a throwaway config in the scratchpad that points at the local components, e.g.:
 ```yaml
@@ -93,7 +106,7 @@ A change is verified only when `compile` ends with `SUCCESS`.
 
 **4. Validate the real board config** after changing `heltec_v4.yaml` (it fetches the pushed fork, so it tests the GitHub copy): create a throwaway `secrets.yaml` next to it (`wifi_ssid`, `wifi_password`, `ap_password`, `api_encryption_key`, `ota_password`), run `esphome config heltec_v4.yaml`, then delete it.
 
-**5. Clean up.** `secrets.yaml` and the `.esphome/` build dir are **not gitignored** here — delete them after a run and never stage them.
+**5. Clean up.** `secrets.yaml` and the `.esphome/` build dir are **not gitignored** here — delete them after a run and never stage them. (`tests/build/` is ignored by `tests/.gitignore`.)
 
 **On hardware** (user's step): `~/esphome-venv/bin/esphome run heltec_v4.yaml` builds, flashes over USB and streams logs. Success = SX1262 setup without `BUSY pin timeout`, then `RSSI: … T: …` lines from `on_frame`. See `upload_plan.md` for flashing through Home Assistant.
 

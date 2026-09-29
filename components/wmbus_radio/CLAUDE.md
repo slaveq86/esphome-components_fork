@@ -1,6 +1,6 @@
 # wmbus_radio
 
-Receives raw wM-Bus frames from an SPI radio and hands them to handlers (meters, `on_frame` automations). Contains this fork's only functional patch: `tcxo_voltage`.
+Receives raw wM-Bus frames from an SPI radio and hands them to handlers (meters, `on_frame` automations). Contains this fork's patches: `tcxo_voltage` and two receive-path bug fixes (below).
 
 ## YAML
 ```yaml
@@ -49,8 +49,20 @@ SPI only from the RX task; ESPHome entities only from `loop()`.
 From the first byte (`packet.cpp`): `0x54` → C1 (next byte `0xCD` = frame A, `0x3D` = frame B), otherwise T1 (3of6, frame A).
 
 ## SX1262 (`transceiver_sx1262.cpp`)
-Setup order: reset → STANDBY_RC → GFSK → RF freq → buffer base → modulation → packet params → RX gain → DIO2 RF switch (if `rf_switch`) → IRQ mask → sync word → **DIO3 TCXO (`tcxo_voltage_`, if `has_tcxo`)** → Calibrate → CalibrateImage 863 MHz → fallback STDBY_XOSC → STANDBY_XOSC → continuous RX.
-Hardcoded: **868.950 MHz** (`frequency` is ignored here), 100 kbps, 50 kHz deviation, no shaping, RX BW 234.3 kHz, 16-bit preamble, sync `0x54 0x3D`, fixed 255-byte payload (long frames are truncated), no HW CRC/whitening. `ULTRA_LOW_LATENCY` also enables the SYNC_WORD_VALID IRQ and `get_frame()` returns 0 until RX_DONE.
+Setup order: reset → STANDBY_RC → GFSK → RF freq → buffer base → modulation → packet params → RX gain → DIO2 RF switch (if `rf_switch`) → IRQ mask → sync word → **DIO3 TCXO (`tcxo_voltage_`, if `has_tcxo`)** → Calibrate → CalibrateImage 863 MHz → fallback STDBY_XOSC → STANDBY_XOSC → RX.
+- RX is started with timeout 0, i.e. **single mode**: the chip drops back to standby after each packet, and the driver re-arms it (`get_frame` at offset > 0, `restart_rx`).
+- Hardcoded: **868.950 MHz** (`frequency` is ignored here), 100 kbps, 50 kHz deviation, no shaping, RX BW 234.3 kHz, 16-bit preamble, sync `0x54 0x3D`, no HW CRC/whitening.
+- The payload is a fixed 255 bytes, so long frames are truncated and RX_DONE comes ~20 ms after the sync word.
+- `ULTRA_LOW_LATENCY` also enables the SYNC_WORD_VALID IRQ, and `get_frame()` returns 0 until RX_DONE. **Known bug:** `read_in_task` then waits only 1 tick for RX_DONE and aborts the packet, so this mode loses packets. Use `NORMAL`.
+
+The whole sequence and every parameter are checked against the datasheet by `tests/host/test_sx1262.cpp`.
+
+## Bug fixes in this fork (not yet upstream)
+Found by the host tests (`tests/`); both are regression-tested there. Offer them upstream, and expect them as rebase conflicts until then.
+- `decode3of6.cpp`: a symbol at bit offset 2 fits in the current byte, but the code read `data[byte_idx + 1]` for any offset > 0, one byte past the input on every T1 frame. Now `if (bit_offset > 2)`.
+- `component.cpp` `receive_frame`: `read_in_task(packet->rx_data_ptr(), packet->rx_capacity(), n)` depended on argument evaluation order, because `rx_capacity()` resizes the buffer. It worked with the ESP32 toolchain (left to right) and overflowed with x86-64 GCC. The pointer and capacity are now taken in separate statements.
+
+Still open: `sync_mode: ULTRA_LOW_LATENCY` loses packets (see above; `KNOWN_BUG` test in `tests/host/test_rx_pipeline.cpp`).
 
 ## The fork patch (`tcxo_voltage`)
 Touches `__init__.py` (`CONF_TCXO_VOLTAGE`, `TCXO_VOLTAGES` map `1.6V→0x00 … 3.3V→0x07`, codegen), `transceiver.{h,cpp}` (`set_tcxo_voltage`, `tcxo_voltage_{0x06}`), and `transceiver_sx1262.cpp` (uses `tcxo_voltage_` in `SET_DIO3_AS_TCXO_CTRL`). Default 3.0 V = upstream behaviour. When rebasing onto upstream, conflicts will be in exactly these spots.

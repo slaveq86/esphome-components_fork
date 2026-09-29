@@ -18,7 +18,7 @@ wmbus_radio:
   tcxo_voltage: 1.8V   # 1.6V | 1.7V | 1.8V | 2.2V | 2.4V | 2.7V | 3.0V (default) | 3.3V
 ```
 
-The default is `3.0V`, so existing configs behave exactly as upstream. Apart from this patch the fork tracks upstream `main` unchanged and is rebased onto it to pick up fixes.
+The default is `3.0V`, so existing configs behave exactly as upstream. Apart from this option and two small receive-path bug fixes found by the [tests](tests/README.md), the fork tracks upstream `main` unchanged and is rebased onto it to pick up fixes.
 
 ## Features
 
@@ -91,7 +91,7 @@ Start without the `wmbus_meter` / `sensor` blocks: every received telegram is th
 | `busy_pin` | SX1262 | — | BUSY pin, recommended |
 | `rx_gain` | SX1262 | `BOOSTED` | `BOOSTED` (sensitivity) or `POWER_SAVING` |
 | `rf_switch` | SX1262 | `false` | `true` if DIO2 controls the RF switch |
-| `sync_mode` | SX1262 | `NORMAL` | `NORMAL` or `ULTRA_LOW_LATENCY` |
+| `sync_mode` | SX1262 | `NORMAL` | `NORMAL` or `ULTRA_LOW_LATENCY` (currently loses packets, see [tests](tests/README.md#known-upstream-bugs)) |
 | `has_tcxo` | SX1262 | `true` | DIO3 powers an external TCXO |
 | `tcxo_voltage` | SX1262 | `3.0V` | **Added by this fork.** TCXO supply voltage, `1.6V`…`3.3V` |
 | `frequency` | CC1101 | `868.95MHz` | 300–928 MHz |
@@ -144,7 +144,7 @@ text_sensor:
     name: Meter alarms
 ```
 
-Numeric fields are named `<field>_<unit>`. The unit is converted for you and becomes the default `unit_of_measurement`. Available fields per meter are listed on the wmbusmeters.org analyze page. Special fields: `rssi_dbm`, `timestamp`, `timestamp_zulu`.
+Numeric fields are named `<field>_<unit>`, where the unit must be the one the driver reports (`total_m3` works, `total_l` never publishes). It also becomes the default `unit_of_measurement`. Available fields per meter are listed on the wmbusmeters.org analyze page. Special fields: `rssi_dbm`, `timestamp`, `timestamp_zulu`.
 
 ### Forwarding raw frames
 
@@ -174,4 +174,4 @@ git fetch https://github.com/SzczepanLeon/esphome-components.git main
 git rebase FETCH_HEAD
 ```
 
-The `tcxo_voltage` patch touches only `components/wmbus_radio/` (`__init__.py`, `transceiver.h`, `transceiver.cpp`, `transceiver_sx1262.cpp`). If upstream ever gains an equivalent option, this fork can be retired.
+The `tcxo_voltage` patch touches only `components/wmbus_radio/` (`__init__.py`, `transceiver.h`, `transceiver.cpp`, `transceiver_sx1262.cpp`); the bug fixes touch `decode3of6.cpp` and `component.cpp`. If upstream ever gains an equivalent option (and the fixes), this fork can be retired.

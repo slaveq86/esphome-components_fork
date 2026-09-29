@@ -60,6 +60,7 @@ captive_portal:
 
 time:
   - platform: homeassistant
+    id: ha_time
 
 # ---- RF front end + Vext power -------------------------------------------
 switch:
@@ -123,6 +124,18 @@ wmbus_radio:
         - logger.log:
             format: "RSSI: %ddBm T: %s (%d) %s"
             args: [ frame->rssi(), frame->as_hex().c_str(), frame->data().size(), toString(frame->link_mode()) ]
+        # Remember the last frame for the OLED (any meter, not only ours).
+        - lambda: |-
+            auto &d = frame->data();
+            id(disp_frames) += 1;
+            id(disp_rssi) = frame->rssi();
+            id(disp_last_ms) = millis();
+            if (d.size() >= 8) {
+              // A-field: meter id, 4 BCD bytes, least significant first
+              char buf[9];
+              snprintf(buf, sizeof(buf), "%02x%02x%02x%02x", d[7], d[6], d[5], d[4]);
+              id(disp_last_id) = buf;
+            }
 
 # ---- Meter -----------------------------------------------------------------
 # Start without a meter: every received telegram is logged with a
@@ -143,6 +156,8 @@ wmbus_radio:
 #     accuracy_decimals: 3
 #     device_class: water
 #     state_class: total_increasing
+#     on_value:
+#       - lambda: 'id(disp_total) = x;'   # shown on the OLED
 #
 #   - platform: wmbus_meter
 #     parent_id: water_meter
@@ -150,3 +165,72 @@ wmbus_radio:
 #     name: "Water meter RSSI"
 #     device_class: signal_strength
 #     entity_category: diagnostic
+
+# ---- OLED (built-in 0.96" SSD1306, 128x64) --------------------------------
+# Powered by Vext (switch above). Pins as on the Heltec V3 / Meshtastic
+# heltec_v4 variant: SDA 17, SCL 18, reset 21.
+#
+#   wM-Bus          12:34      <- header + time from Home Assistant
+#   3.488 m3                   <- meter total (once the meter block is on)
+#   21242472  -72 dBm          <- id + RSSI of the last frame (any meter)
+#   frames 17   42 s ago       <- frames received since boot, age of last
+globals:
+  - id: disp_frames
+    type: uint32_t
+    initial_value: '0'
+  - id: disp_rssi
+    type: int
+    initial_value: '0'
+  - id: disp_last_ms
+    type: uint32_t
+    initial_value: '0'
+  - id: disp_last_id
+    type: std::string
+    initial_value: '""'
+  - id: disp_total
+    type: float
+    initial_value: 'NAN'
+
+i2c:
+  sda: GPIO17
+  scl: GPIO18
+  frequency: 400kHz
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 11
+  - file: "gfonts://Roboto@500"
+    id: font_big
+    size: 18
+
+display:
+  - platform: ssd1306_i2c
+    model: "SSD1306 128x64"
+    address: 0x3C
+    reset_pin: GPIO21
+    update_interval: 1s
+    lambda: |-
+      auto now = id(ha_time).now();
+      it.print(0, 0, id(font_small), "wM-Bus");
+      it.print(it.get_width(), 0, id(font_small), TextAlign::TOP_RIGHT,
+               now.is_valid() ? now.strftime("%H:%M").c_str() : "--:--");
+
+      if (std::isnan(id(disp_total)))
+        it.print(0, 14, id(font_big), "--- m3");
+      else
+        it.printf(0, 14, id(font_big), "%.3f m3", id(disp_total));
+
+      if (id(disp_frames) == 0) {
+        it.print(0, 38, id(font_small), "waiting for telegrams");
+        return;
+      }
+      it.printf(0, 38, id(font_small), "%s  %d dBm",
+                id(disp_last_id).c_str(), id(disp_rssi));
+      uint32_t age = (millis() - id(disp_last_ms)) / 1000;
+      if (age < 120)
+        it.printf(0, 51, id(font_small), "frames %u   %u s ago",
+                  (unsigned) id(disp_frames), (unsigned) age);
+      else
+        it.printf(0, 51, id(font_small), "frames %u   %u min ago",
+                  (unsigned) id(disp_frames), (unsigned) (age / 60));

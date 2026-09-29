@@ -164,6 +164,9 @@ wmbus_radio:
 #     parent_id: water_meter
 #     field: total_m3
 #     name: "Water total"
+#     # "m³" (superscript 3) is required by HA's Energy panel; the component's
+#     # default would be "m3", which HA does not accept for water.
+#     unit_of_measurement: "m³"
 #     accuracy_decimals: 3
 #     device_class: water
 #     state_class: total_increasing

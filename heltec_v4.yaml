@@ -26,7 +26,7 @@ esp32:
     type: esp-idf
     advanced:
       # wmbusmeters decodes telegrams in the main loop and needs more than the
-      # default 8 KB stack. Needs a recent ESPHome (2026.9 has it, 2025.10 not).
+      # default 8 KB stack. Needs a recent ESPHome (2026.9 has it, 2025.10 does not).
       loop_task_stack_size: 32768
 
 external_components:
@@ -35,8 +35,9 @@ external_components:
   # components/ folder next to it.
   - source: github://slaveq86/esphome-components_fork@main
     refresh: 0s
-    # Only the wM-Bus parts. The repo also carries an old copy of ESPHome's
-    # esp32 platform that breaks newer ESPHome ("Component not found: logger").
+    # Only the wM-Bus parts. Older commits of this repo (and upstream) carry a
+    # copy of ESPHome's esp32 platform that breaks newer ESPHome
+    # ("Component not found: logger"); this keeps such a copy out.
     components: [wmbus_radio, wmbus_meter, wmbus_common]
   # To build against a local checkout of this fork instead, comment the block
   # above and use:

@@ -9,7 +9,7 @@
 ## What this is
 A **thin fork** of [SzczepanLeon/esphome-components](https://github.com/SzczepanLeon/esphome-components) (`slaveq86/esphome-components_fork`): ESPHome external components that receive wireless M-Bus (EN 13757-4, 868 MHz, T1/C1) telegrams from utility meters and expose decoded values as sensors in Home Assistant.
 
-The main functional change on top of upstream is the SX1262 **`tcxo_voltage`** option (`wmbus_radio`, commit `c6b2058`). There are also two small bug fixes in `wmbus_radio` (`decode3of6.cpp` out-of-bounds read, `component.cpp` argument-order dependency; see `components/wmbus_radio/CLAUDE.md`) that are candidates for upstream. Upstream hardcodes the DIO3 TCXO supply to 3.0 V; the Heltec WiFi LoRa 32 V3/V4 needs **1.8 V** or the radio never locks. Everything else should stay identical to upstream so the fork can be rebased cleanly.
+The main functional change on top of upstream is the SX1262 **`tcxo_voltage`** option (`wmbus_radio`, commit `c6b2058`). There are also two small bug fixes in `wmbus_radio` (`decode3of6.cpp` out-of-bounds read, `component.cpp` argument-order dependency; see `components/wmbus_radio/CLAUDE.md`) that are candidates for upstream. Upstream hardcodes the DIO3 TCXO supply to 3.0 V; the Heltec WiFi LoRa 32 V3/V4 needs **1.8 V** or the radio never locks. The fork also **deletes upstream's `components/esp32`**, a vendored copy of ESPHome's esp32 platform that only raised the main-loop stack to 32 KB. Newer ESPHome breaks with it ("Component not found: logger"), and it has `esp32: framework: advanced: loop_task_stack_size: 32768` for that now. Every config needs that setting, because wmbusmeters decodes in the main loop. If a rebase conflicts on `components/esp32`, keep it deleted. Everything else should stay identical to upstream so the fork can be rebased cleanly.
 
 User's target: a Heltec WiFi LoRa 32 **V4** (ESP32-S3 + SX1262) reading a **Diehl IZAR** water meter (driver `izar`, T1, no key), in the style of [zibous/ha-watermeter](https://github.com/zibous/ha-watermeter).
 
@@ -22,7 +22,6 @@ components/
   wmbus_meter/         meter instances + sensor/text_sensor platforms
   wmbus_common/        vendored wmbusmeters C++ (parsers, crypto, 91 driver_*.cpp)
   socket_transmitter/  TCP/UDP send action
-  esp32/               vendored override of ESPHome's esp32 platform (bigger loopTask stack)
 heltec_v4.yaml                    user's board config (SX1262, FEM switches, tcxo_voltage: 1.8V)
 UltimateReader_v5.yaml            upstream example (SX1276, LilyGO T3-S3)
 ESP32-C3_SuperMini_CC1101.yaml    upstream example (CC1101)
@@ -43,7 +42,7 @@ radio IRQ ──ISR──▶ radio_recv task (core 1, prio 24) ──SPI read─
 Unhandled frames log a `https://wmbusmeters.org/analyze/<hex>` link.
 
 ## Testing
-Local toolchain: **`~/esphome-venv/bin/esphome`** (ESPHome **2025.10.3** — must match the vendored `components/esp32`).
+Local toolchain: **`~/esphome-venv/bin/esphome`**. Keep it on the same ESPHome version as the user's Home Assistant add-on (`~/esphome-venv/bin/pip install -U esphome`); `loop_task_stack_size` does not exist in 2025.10.
 
 **0. Hardware-free tests first** (details in `tests/README.md`):
 ```bash
@@ -63,7 +62,9 @@ esphome: { name: wmbus-test }
 esp32:
   board: heltec_wifi_lora_32_V3
   flash_size: 16MB
-  framework: { type: esp-idf }
+  framework:
+    type: esp-idf
+    advanced: { loop_task_stack_size: 32768 }   # wmbusmeters needs > 8 KB
 logger: { level: DEBUG }
 wifi: { ssid: test, password: testtest }   # dummy, only so `time:` can compile
 time:
@@ -115,7 +116,7 @@ A change is verified only when `compile` ends with `SUCCESS`.
 git fetch https://github.com/SzczepanLeon/esphome-components.git main
 git rebase FETCH_HEAD        # keeps the tcxo_voltage commit on top
 ```
-The user runs rebases/pushes. After a sync, re-run the tests above, and check that `components/esp32` still matches the installed ESPHome version.
+The user runs rebases/pushes. After a sync, re-run the tests above. If upstream changed `components/esp32`, the rebase stops with a modify/delete conflict: keep the deletion (`git rm -r components/esp32`).
 
 ## Conventions
 - ESP-IDF only (no Arduino). Radios need the `spi:` component.

@@ -29,6 +29,8 @@ esp32:
   flash_size: 16MB
   framework:
     type: esp-idf
+    advanced:
+      loop_task_stack_size: 32768
 logger:
 wifi:
   ssid: test

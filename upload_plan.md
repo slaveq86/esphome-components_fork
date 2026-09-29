@@ -38,8 +38,8 @@ The clean split:
   - `wifi_ssid`
   - `wifi_password`
   - `ap_password`         (fallback hotspot password)
-  - `api_encryption_key`  (generate one: ESPHome dashboard suggests it, or any 32-byte base64 key)
-  - `ota_password`
+  - `api_encryption_key`  (generate one: ESPHome dashboard suggests it, or any 32-byte base64 key;
+    it also encrypts OTA updates, so there is no `ota_password`)
 - [ ] Click **Save**, then **Install → dropdown → Validate** (or run **`esphome config`** on the
   PC) to confirm it compiles clean before flashing.
 

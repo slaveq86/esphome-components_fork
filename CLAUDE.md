@@ -105,7 +105,7 @@ A change is verified only when `compile` ends with `SUCCESS`.
 - `wmbus_common` compiles only drivers named in `type:` — after touching parser/driver code add `wmbus_common: { drivers: all }` to compile every driver.
 - Anything used only from YAML lambdas/actions (`on_frame`, `socket_transmitter.send`, `wmbus_radio.send_frame_with_socket`, `wmbus_meter.send_telegram_with_mqtt`) must appear in the test config, or template errors stay hidden.
 
-**4. Validate the real board config** after changing `heltec_v4.yaml` (it fetches the pushed fork, so it tests the GitHub copy): create a throwaway `secrets.yaml` next to it (`wifi_ssid`, `wifi_password`, `ap_password`, `api_encryption_key`, `ota_password`), run `esphome config heltec_v4.yaml`, then delete it.
+**4. Validate the real board config** after changing `heltec_v4.yaml` (it fetches the pushed fork, so it tests the GitHub copy): create a throwaway `secrets.yaml` next to it (`wifi_ssid`, `wifi_password`, `ap_password`, `api_encryption_key`; OTA reuses the api key), run `esphome config heltec_v4.yaml`, then delete it.
 
 **5. Clean up.** `secrets.yaml` and the `.esphome/` build dir are **not gitignored** here — delete them after a run and never stage them. (`tests/build/` is ignored by `tests/.gitignore`.)
 

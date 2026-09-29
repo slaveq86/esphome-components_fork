@@ -55,7 +55,9 @@ api:
 
 ota:
   - platform: esphome
-    password: !secret ota_password
+    # Uploads are encrypted and authenticated with the api encryption key
+    # (a bare `encryption:` reuses it); no separate OTA password.
+    encryption:
 
 wifi:
   ssid: !secret wifi_ssid

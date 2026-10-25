@@ -69,6 +69,13 @@ wifi:
 
 captive_portal:
 
+text_sensor:
+  # Connected network, shown on the OLED and in HA (diagnostic)
+  - platform: wifi_info
+    ssid:
+      id: wifi_ssid
+      name: "WiFi SSID"
+
 time:
   - platform: homeassistant
     id: ha_time
@@ -186,6 +193,7 @@ wmbus_radio:
 #
 #   wM-Bus          12:34      <- header + time from Home Assistant
 #   3.488 m3                   <- meter total (once the meter block is on)
+#   WiFi MyNetwork             <- connected SSID
 #   21242472  -72 dBm          <- id + RSSI of the last frame (any meter)
 #   frames 17   42 s ago       <- frames received since boot, age of last
 globals:
@@ -216,7 +224,7 @@ font:
     size: 11
   - file: "gfonts://Roboto@500"
     id: font_big
-    size: 18
+    size: 14
 
 display:
   - platform: ssd1306_i2c
@@ -231,9 +239,14 @@ display:
                now.is_valid() ? now.strftime("%H:%M").c_str() : "--:--");
 
       if (std::isnan(id(disp_total)))
-        it.print(0, 14, id(font_big), "--- m3");
+        it.print(0, 12, id(font_big), "--- m3");
       else
-        it.printf(0, 14, id(font_big), "%.3f m3", id(disp_total));
+        it.printf(0, 12, id(font_big), "%.3f m3", id(disp_total));
+
+      if (wifi::global_wifi_component->is_connected() && !id(wifi_ssid).state.empty())
+        it.printf(0, 26, id(font_small), "WiFi %.20s", id(wifi_ssid).state.c_str());
+      else
+        it.print(0, 26, id(font_small), "WiFi not connected");
 
       if (id(disp_frames) == 0) {
         it.print(0, 38, id(font_small), "waiting for telegrams");

@@ -9,11 +9,7 @@ from esphome.const import (
     CONF_MODE,
 )
 from esphome import automation
-from esphome.components.mqtt import (
-    MQTT_PUBLISH_ACTION_SCHEMA,
-    MQTTPublishAction,
-    mqtt_publish_action_to_code,
-)
+from esphome.components.mqtt import MQTT_PUBLISH_ACTION_SCHEMA
 
 from ..wmbus_radio import RadioComponent
 from ..wmbus_common import validate_driver
@@ -104,12 +100,28 @@ TELEGRAM_MQTT_PUBLISH_ACTION_SCHEMA = cv.All(
             )
         }
     ),
-    lambda c: {**c, CONF_PAYLOAD: cv.Lambda("return meter.as_json();")},
+    # ESPHome >= 2026.10 passes `meter` as const to apply actions.
+    lambda c: {
+        **c,
+        CONF_PAYLOAD: cv.Lambda(
+            "return const_cast<esphome::wmbus_meter::Meter &>(meter).as_json();"
+        ),
+    },
 )
 
 
+# Reuse whatever implements `mqtt.publish` in the installed ESPHome: up to
+# 2026.9 that is MQTTPublishAction + mqtt_publish_action_to_code, from 2026.10
+# an apply action without a C++ class (MQTTPublishAction no longer exists).
+_mqtt_publish = automation.ACTION_REGISTRY["mqtt.publish"]
+_register_kwargs = (
+    {"synchronous": _mqtt_publish.synchronous}
+    if hasattr(_mqtt_publish, "synchronous")
+    else {}
+)
 automation.register_action(
     "wmbus_meter.send_telegram_with_mqtt",
-    MQTTPublishAction,
+    _mqtt_publish.type_id,
     TELEGRAM_MQTT_PUBLISH_ACTION_SCHEMA,
-)(mqtt_publish_action_to_code)
+    **_register_kwargs,
+)(_mqtt_publish.fun)

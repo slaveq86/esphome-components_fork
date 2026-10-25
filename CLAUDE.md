@@ -56,7 +56,7 @@ make -C tests run T=sx1262  # a subset of the host tests
 
 Then, for anything that touches build config or codegen, the manual steps below.
 
-**1. Build against the local tree, not GitHub.** `heltec_v4.yaml` pulls `github://slaveq86/esphome-components_fork@main`, so it does *not* test local edits. Use a throwaway config in the scratchpad that points at the local components, e.g.:
+**1. Build against the local tree, not GitHub.** `heltec_v4.yaml` pulls `github://slaveq86/esphome-components_fork@<tag>`, so it does *not* test local edits. Use a throwaway config in the scratchpad that points at the local components, e.g.:
 ```yaml
 esphome: { name: wmbus-test }
 esp32:

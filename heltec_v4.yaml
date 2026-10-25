@@ -33,7 +33,7 @@ external_components:
   # Pull the (patched) components straight from this fork on GitHub, so the
   # config builds anywhere (e.g. HA's ESPHome Device Builder) without the
   # components/ folder next to it.
-  - source: github://slaveq86/esphome-components_fork@main
+  - source: github://slaveq86/esphome-components_fork@1.1.0
     refresh: 0s
     # Only the wM-Bus parts. Older commits of this repo (and upstream) carry a
     # copy of ESPHome's esp32 platform that breaks newer ESPHome

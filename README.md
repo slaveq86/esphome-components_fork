@@ -36,7 +36,7 @@ The default is `3.0V`, so existing configs behave exactly as upstream. Apart fro
 
 ```yaml
 external_components:
-  - source: github://slaveq86/esphome-components_fork@main
+  - source: github://slaveq86/esphome-components_fork@1.1.0
 
 esp32:
   board: heltec_wifi_lora_32_V3   # no V4 board definition yet; same ESP32-S3

@@ -18,7 +18,7 @@ The clean split:
   builds anywhere (including HA's Device Builder) with no `components/` folder next to it:
   ```yaml
   external_components:
-    - source: github://slaveq86/esphome-components_fork@main
+    - source: github://slaveq86/esphome-components_fork@1.1.0
       refresh: 0s
   ```
   (The `tcxo_voltage` patch is on `origin/main`, so this resolves. `refresh: 0s` means ESPHome
